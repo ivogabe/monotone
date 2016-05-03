@@ -1,0 +1,24 @@
+{
+  "name": "monotone",
+  "version": "0.1.0",
+  "description": "An implementation of the monotone framework for JavaScript",
+  "main": "dist/lib/index.js",
+  "scripts": {
+    "build": "tsc -p src",
+    "test": "ava dist/test"
+  },
+  "keywords": [
+    "monotone framework",
+    "code",
+    "analysis",
+    "javascript"
+  ],
+  "author": "Ivo Gabe de Wolff",
+  "license": "MIT",
+  "dependencies": {
+    "typescript": "^1.9.0-dev.20160503"
+  },
+  "devDependencies": {
+    "ava": "^0.14.0"
+  }
+}
