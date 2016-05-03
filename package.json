@@ -3,6 +3,12 @@
   "version": "0.1.0",
   "description": "An implementation of the monotone framework for JavaScript",
   "main": "dist/lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivogabe/monotone.git"
+  },
+  "homepage": "https://github.com/ivogabe/monotone",
+  "bugs": "https://github.com/ivogabe/monotone/issues",
   "scripts": {
     "build": "tsc -p src",
     "test": "ava dist/test"
