@@ -20,6 +20,21 @@ test("self", t => {
 	t.is(storage.get(store, "foo"), 0);
 });
 
+test("falsy", t => {
+	const storage = createStorage<string, any>(() => 1, (a, b) => a + b);
+	// TODO: Remove cast (see https://github.com/Microsoft/TypeScript/issues/8407)
+	const store = storage.createStore(new Map([
+		<[string, any]>["a", undefined],
+		<[string, any]>["b", false],
+		<[string, any]>["c", 0],
+		<[string, any]>["d", ""]
+	]));
+	t.is(storage.get(store, "a"), undefined);
+	t.is(storage.get(store, "b"), false);
+	t.is(storage.get(store, "c"), 0);
+	t.is(storage.get(store, "d"), "");
+});
+
 test("parent", t => {
 	const storage = create();
 	const storeA = storage.createStore(new Map([

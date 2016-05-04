@@ -20,16 +20,17 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 		let currentValue: UValue | undefined = undefined;
 		while (stack.length !== 0) {
 			const s = stack.pop()!;
-			const value = s.values.get(key);
-			if (value) {
+			if (s.values.has(key)) {
+				const value = s.values.get(key)!;
 				if (hasValue) {
 					// TODO: Remove cast (see https://github.com/Microsoft/TypeScript/issues/8404)
 					currentValue = union(<any>currentValue, value);
 				} else {
+					hasValue = true;
 					currentValue = value;
 				}
 			} else {
-				stack.push(...<any[]>s.parents); // TODO: Remove cast
+				stack.push(...s.parents);
 			}
 		}
 		if (!hasValue) {
