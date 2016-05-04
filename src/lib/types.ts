@@ -22,19 +22,19 @@ export enum Direction {
 	Forward,
 	Backward
 }
-export interface Configuration<TState, TResult, TNode extends Node> {
+export interface Configuration<TEnvironment, TResult, TNode extends Node> {
 	direction: Direction;
-	
-	bottom: TState;
-	entry(location: GraphNode<Node>): TState;
-	join(a: TState, b: TState): TState;
-	isLessOrEqual(a: TState, b: TState): boolean;
-	
+
+	bottom: TEnvironment;
+	entry(location: GraphNode<Node>): TEnvironment;
+	join(a: TEnvironment, b: TEnvironment): TEnvironment;
+	equal(a: TEnvironment, b: TEnvironment): boolean;
+
 	kinds: GraphNodeKind[];
 	filter(node: Node): node is TNode;
-	transfer(node: TNode, kind: GraphNodeKind, state: TState, get: (node: Node, kind: GraphNodeKind) => TState): TState;
-	
-	result(get: (node: Node, kind: GraphNodeKind) => TState): TResult;
+	transfer(node: TNode, kind: GraphNodeKind, state: TEnvironment): TEnvironment;
+
+	result(get: (node: Node, kind: GraphNodeKind) => TEnvironment): TResult;
 }
 export type Instance<TResult> = (files: SourceFile[], checker: TypeChecker) => TResult;
 

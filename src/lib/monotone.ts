@@ -65,15 +65,18 @@ function run<UState, UResult, UNode extends ts.Node>(configuration: Configuratio
 	while (worklist.length !== 0) {
 		const [from, to] = worklist.pop()!;
 		const before = get(from);
-		const transformed = configuration.kinds.indexOf(from.kind) !== -1 && configuration.filter(from.node)
-			? configuration.transfer(from.node, from.kind, before, getState) : before;
 		const after = get(to);
+		const transformed = configuration.join(
+			configuration.kinds.indexOf(from.kind) !== -1 && configuration.filter(from.node)
+				? configuration.transfer(from.node, from.kind, before) : before,
+			after
+		);
 		
-		if (configuration.isLessOrEqual(transformed, after)) {
+		if (configuration.equal(transformed, after)) {
 			continue;
 		}
 		
-		set(to, configuration.join(after, transformed));
+		set(to, transformed);
 		for (const next of successors(to)) {
 			worklist.push([to, next!]); // TODO: Remove cast
 		}

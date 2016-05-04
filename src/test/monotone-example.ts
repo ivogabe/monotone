@@ -12,7 +12,8 @@ function setUnion<U>(a: Set<U>, b: Set<U>) {
 	}
 	return result;
 }
-function isSubsetOrEqual<U>(a: Set<U>, b: Set<U>) {
+function setCompare<U>(a: Set<U>, b: Set<U>) {
+	if (a.size !== b.size) return false;
 	for (const entry of a) {
 		// TODO: Remove cast (TS issue)
 		if (!b.has(entry!)) return false;
@@ -44,7 +45,7 @@ function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Conf
 		bottom: new Set(),
 		entry: (location) => new Set(),
 		join: setUnion,
-		isLessOrEqual: isSubsetOrEqual,
+		equal: setCompare,
 		
 		kinds: [GraphNodeKind.Begin],
 		filter: isIdentifier,
