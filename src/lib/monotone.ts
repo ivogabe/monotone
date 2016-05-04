@@ -16,7 +16,7 @@ export function runFiles<UResult>(instance: Instance<UResult>, files: ts.SourceF
 	const host = {
 		getSourceFile(fileName: string) {
 			for (const file of files) {
-				if (file!.fileName === fileName) return file!;
+				if (file.fileName === fileName) return file;
 			}
 			// TODO: Remove casts
 			// TS lib doesn't have nullability annotations
@@ -78,7 +78,7 @@ function run<UState, UResult, UNode extends ts.Node>(configuration: Configuratio
 		
 		set(to, transformed);
 		for (const next of successors(to)) {
-			worklist.push([to, next!]); // TODO: Remove cast
+			worklist.push([to, next]);
 		}
 	}
 	

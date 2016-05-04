@@ -24,7 +24,7 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 	let flowContinueLabel: GraphNode<ts.BreakOrContinueStatement>[] | undefined;
 	let flowTry: GraphNode<ts.Node>[] | undefined;
 
-	for (const file of files) bindFile(file!); // TODO: Remove cast
+	for (const file of files) bindFile(file);
 
 	return { get, edges };
 
@@ -36,14 +36,14 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		const result: GraphEdge<ts.Node, ts.Node>[] = [];
 		function visitNode(node: ts.Node) {
 			for (const kind of allKinds) {
-				const graphNode = getNode(node, kind!); // TODO: Remove cast
+				const graphNode = getNode(node, kind);
 				for (const next of direction === Direction.Forward ? graphNode.next : graphNode.previous) {
-					result.push([graphNode, next!]); // TODO: Remove cast
+					result.push([graphNode, next]);
 				}
 			}
 			ts.forEachChild(node, visitNode);
 		}
-		for (const file of files) visitNode(file!); // TODO: Remove cast
+		for (const file of files) visitNode(file);
 		return result;
 	}
 	
@@ -321,11 +321,10 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		const rest: GraphNode<ts.BreakOrContinueStatement>[] = [];
 		const result: GraphNode<ts.BreakOrContinueStatement>[] = [];
 		for (const item of list || []) {
-			// TODO: Remove cast (item!), see https://github.com/Microsoft/TypeScript/issues/8357
-			if (item!.node.label!.text === label.text) {
-				result.push(item!);
+			if (item.node.label!.text === label.text) {
+				result.push(item);
 			} else {
-				rest.push(item!);
+				rest.push(item);
 			}
 		}
 		if (kind === ts.SyntaxKind.BreakStatement) {

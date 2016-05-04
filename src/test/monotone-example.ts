@@ -8,15 +8,14 @@ function setUnion<U>(a: Set<U>, b: Set<U>) {
 	if (b.size > a.size) [a, b] = [b, a];
 	const result = new Set(a);
 	for (const entry of b) {
-		result.add(entry!); // TODO: Remove cast (TS issue)
+		result.add(entry);
 	}
 	return result;
 }
 function setCompare<U>(a: Set<U>, b: Set<U>) {
 	if (a.size !== b.size) return false;
 	for (const entry of a) {
-		// TODO: Remove cast (TS issue)
-		if (!b.has(entry!)) return false;
+		if (!b.has(entry)) return false;
 	}
 	return true;
 }
@@ -69,7 +68,7 @@ function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Conf
 		const list: string[][] = [];
 		
 		for (const file of files) {
-			addOutput(file!); // TODO: Remove cast
+			addOutput(file);
 		}
 		
 		return list;
