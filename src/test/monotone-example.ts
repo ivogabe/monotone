@@ -3,22 +3,8 @@ import * as ts from "typescript";
 import { createScopeResolver } from "../lib/scope";
 import { Direction, Configuration, GraphNode, GraphNodeKind } from "../lib/types";
 import { monotone, runString } from "../lib/monotone";
+import { setUnion, setCompare } from "../lib/utils";
 
-function setUnion<U>(a: Set<U>, b: Set<U>) {
-	if (b.size > a.size) [a, b] = [b, a];
-	const result = new Set(a);
-	for (const entry of b) {
-		result.add(entry);
-	}
-	return result;
-}
-function setCompare<U>(a: Set<U>, b: Set<U>) {
-	if (a.size !== b.size) return false;
-	for (const entry of a) {
-		if (!b.has(entry)) return false;
-	}
-	return true;
-}
 function isIdentifier(node: ts.Node): node is ts.Identifier {
 	return node.kind === ts.SyntaxKind.Identifier;
 }
