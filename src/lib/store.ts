@@ -2,8 +2,11 @@ import { maxItem, all, setCompare, setExclude, setAppend } from "./utils";
 
 export interface Storage<TKey, TValue> {
 	createStore(values: Map<TKey, TValue>, parents?: Iterable<Store<TKey, TValue>>): Store<TKey, TValue>;
+	createEmpty(parents?: Iterable<Store<TKey, TValue>>): Store<TKey, TValue>;
+	createSingleton(key: TKey, value: TValue, parents?: Iterable<Store<TKey, TValue>>): Store<TKey, TValue>;
+	
 	get(store: Store<TKey, TValue>, key: TKey): TValue;
-	empty(a: Store<TKey, TValue>): boolean;
+	isEmpty(a: Store<TKey, TValue>): boolean;
 	equal(a: Store<TKey, TValue>, b: Store<TKey, TValue>): boolean;
 }
 export interface Store<TKey, TValue> {
@@ -14,12 +17,18 @@ export interface Store<TKey, TValue> {
 export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue, union: (a: UValue, b: UValue) => UValue, valuesEqual = (a: UValue, b: UValue) => a === b): Storage<UKey, UValue> {
 	type UStore = Store<UKey, UValue>;
 
-	return { createStore, get, empty, equal };
-	
-	function createStore(values: Map<UKey, UValue>, parents: Iterable<Store<UKey, UValue>> = []): UStore {
+	return { createStore, createEmpty, createSingleton, get, isEmpty, equal };
+
+	function createStore(values: Map<UKey, UValue>, parents: Iterable<UStore> = []): UStore {
 		let size = 1;
 		for (const p of parents) size += p.size;
 		return { values, parents, size };
+	}
+	function createEmpty(parents: Iterable<UStore> = []) {
+		return createStore(new Map(), parents);
+	}
+	function createSingleton(key: UKey, value: UValue, parents: Iterable<UStore> = []) {
+		return createStore(new Map([[key, value]]), parents);
 	}
 	function get(store: UStore, key: UKey) {
 		const stack = [store];
@@ -45,11 +54,11 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 		store.values.set(key, currentValue);
 		return currentValue!;
 	}
-	function empty(store: UStore): boolean {
+	function isEmpty(store: UStore): boolean {
 		for (const [key, value] of store.values.entries()) {
 			if (!valuesEqual(value, defaultValue(key))) return false;
 		}
-		return all(store.parents, empty);
+		return all(store.parents, isEmpty);
 	}
 	function equal(a: UStore, b: UStore): boolean {
 		if (a === b) return true;
@@ -59,8 +68,8 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 		
 		function equalHelper(a: Set<UStore>, b: Set<UStore>): boolean {
 			if (setCompare(a, b)) return true;
-			if (a.size === 0) return all(b.values(), empty);
-			if (b.size === 0) return all(a.values(), empty);
+			if (a.size === 0) return all(b.values(), isEmpty);
+			if (b.size === 0) return all(a.values(), isEmpty);
 			// a, b not empty
 			let maxA = maxItem(a, s => s.size)!;
 			let maxB = maxItem(b, s => s.size)!;
