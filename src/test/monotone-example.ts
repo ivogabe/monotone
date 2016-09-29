@@ -1,7 +1,7 @@
 import test from "ava";
 import * as ts from "typescript";
 import { createScopeResolver } from "../lib/scope";
-import { Direction, Configuration, GraphNode, GraphNodeKind } from "../lib/types";
+import { Direction, Configuration, GraphNode, GraphNodeKind, TransferResult } from "../lib/types";
 import { monotone, runString } from "../lib/monotone";
 import { setUnion, setCompare } from "../lib/utils";
 
@@ -21,12 +21,13 @@ function isAssignmentTarget(node: ts.Node) {
 	return false;
 }
 
-function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Configuration<Set<number>, string[][], ts.Identifier> {
+function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Configuration<Set<number>, undefined, string[][], ts.Identifier> {
 	const resolve = createScopeResolver(checker);
 	
 	return {
 		direction: Direction.Backward,
 		
+		initialContexts: () => [undefined],
 		bottom: new Set(),
 		entry: (location) => new Set(),
 		join: setUnion,
@@ -38,7 +39,7 @@ function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Conf
 		result
 	};
 	
-	function transfer(node: ts.Identifier, kind: GraphNodeKind, state: Set<number>) {
+	function transfer(node: ts.Identifier, kind: GraphNodeKind, context: undefined, state: Set<number>) {
 		const result = new Set(state);
 		const id = resolve.get(node);
 		if (id !== undefined) {
@@ -48,7 +49,7 @@ function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Conf
 				result.add(id);
 			}
 		}
-		return result;
+		return TransferResult<undefined, Set<number>>(result);
 	}
 	function result(get: (node: ts.Node, kind: GraphNodeKind) => Set<number>) {
 		const list: string[][] = [];
@@ -83,7 +84,7 @@ function getConfiguration(files: ts.SourceFile[], checker: ts.TypeChecker): Conf
 const instance = monotone(getConfiguration);
 
 test("linear-flow", t => {
-	const result = runString(instance, `
+	const result = runString(instance, false, `
 		function a() {
 			let x, y;
 			debugger;
@@ -102,7 +103,7 @@ test("linear-flow", t => {
 });
 
 test("condition", t => {
-	const result = runString(instance, `
+	const result = runString(instance, false, `
 		function a() {
 			let x, y, z;\
 			debugger;
@@ -123,7 +124,7 @@ test("condition", t => {
 });
 
 test("loop", t => {
-	const result = runString(instance, `
+	const result = runString(instance, false, `
 		function a() {
 			let x, y, z;
 			while (z) {

@@ -1,5 +1,5 @@
 import * as ts from "typescript";
-import { Graph, GraphNode, GraphEdge, GraphNodeKind, Direction } from "./types";
+import { Graph, GraphNode, GraphEdge, GraphNodeKind, Direction, FunctionGraph } from "./types";
 import { toArray, isLogicalBinaryExpression } from "./utils";
 
 const allKinds: GraphNodeKind[] = [
@@ -7,28 +7,35 @@ const allKinds: GraphNodeKind[] = [
 	GraphNodeKind.End,
 	GraphNodeKind.GuardTrue,
 	GraphNodeKind.GuardFalse
-]
+];
 
 export function createGraph(files: ts.SourceFile[]): Graph {
 	const nodes: Map<ts.Node, GraphNode<ts.Node>>[] = [
-		new Map<ts.Node, GraphNode<ts.Node>>(),
-		new Map<ts.Node, GraphNode<ts.Node>>(),
-		new Map<ts.Node, GraphNode<ts.Node>>(),
-		new Map<ts.Node, GraphNode<ts.Node>>()
+		new Map(),
+		new Map(),
+		new Map(),
+		new Map()
 	];
 
+	const functions = new Map<ts.FunctionLikeDeclaration, FunctionGraph>();
+
+	let isFunctionStart = true;
 	let flow: GraphNode<ts.Node> | undefined;
 	let flowBreak: GraphNode<ts.BreakOrContinueStatement>[] | undefined;
 	let flowBreakLabel: GraphNode<ts.BreakOrContinueStatement>[] | undefined;
 	let flowContinue: GraphNode<ts.BreakOrContinueStatement>[] | undefined;
 	let flowContinueLabel: GraphNode<ts.BreakOrContinueStatement>[] | undefined;
 	let flowTry: GraphNode<ts.Node>[] | undefined;
+	let currentFunction: FunctionGraph | undefined;
 
 	for (const file of files) bindFile(file);
 
-	return { get, edges };
+	return { get, edges, getFunction };
 
 	function get<U extends ts.Node>(node: U, kind: GraphNodeKind): GraphNode<U> {
+		if (kind == GraphNodeKind.Synthesized) {
+			throw new Error("Cannot call `get` on synthesized node.")
+		}
 		return <GraphNode<U>>nodes[kind].get(node);
 	}
 	
@@ -46,12 +53,26 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		for (const file of files) visitNode(file);
 		return result;
 	}
+
+	function getFunction(node: ts.FunctionLikeDeclaration) {
+		const graph = functions.get(node);
+		if (graph === undefined) {
+			throw new Error("Graph of function declaration not found");
+		}
+		return graph;
+	}
 	
+	function synthesize(node: ts.Node) {
+		return { node, kind: GraphNodeKind.Synthesized, previous: [], next: [] };
+	}
 	function getNode<U extends ts.Node>(node: U, kind: GraphNodeKind) {
+		if (kind == GraphNodeKind.Synthesized) {
+			throw new Error("Cannot call `getNode` on synthesized node.")
+		}
 		const map = nodes[kind];
 		const value = map.get(node);
 		if (value) return <GraphNode<U>>value;
-		const newNode: GraphNode<U> = { node, kind, previous: [], next: [] }
+		const newNode: GraphNode<U> = { node, kind, previous: [], next: [] };
 		map.set(node, newNode);
 		return newNode;
 	}
@@ -91,9 +112,23 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 	}
 	
 	function bindFile(file: ts.SourceFile) {
+		if (file.isDeclarationFile) return;
 		bindContainerBody(file);
+		currentFunction = undefined;
 		visitNode(file);
+
+		if (flow !== undefined) {
+			const saveFlow = flow;
+			for (const f of files) {
+				if (file === f) continue;
+				addEdge(getNodeBegin(f));
+				flow = saveFlow;
+			}
+		}
+
 		function visitNode(node: ts.Node) {
+			let modifiesCurrentFunction = false;
+			const saveCurrentFunction = currentFunction;
 			switch (node.kind) {
 				case ts.SyntaxKind.FunctionDeclaration:
 				case ts.SyntaxKind.MethodDeclaration:
@@ -101,19 +136,34 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 				case ts.SyntaxKind.ArrowFunction:
 				case ts.SyntaxKind.GetAccessor:
 				case ts.SyntaxKind.SetAccessor:
+					if ((node as ts.FunctionLikeDeclaration).body === undefined) return false;
+					modifiesCurrentFunction = true;
+					currentFunction = {
+						entry: getNode((node as ts.FunctionLikeDeclaration).body!, GraphNodeKind.Begin),
+						exit: []
+					};
+					functions.set(node as ts.FunctionLikeDeclaration, currentFunction);
 					bindContainerBody((<ts.FunctionLikeDeclaration>node).body);
 					break;
 				case ts.SyntaxKind.ClassDeclaration:
 				case ts.SyntaxKind.ClassExpression:
-					for (const member of (<ts.ClassLikeDeclaration>node).members) {
-						bindContainerBody(member);
-					}
+					modifiesCurrentFunction = true;
+					currentFunction = undefined;
+					bindContainerBody(node);
 					break;
 				case ts.SyntaxKind.ModuleDeclaration:
+					modifiesCurrentFunction = true;
+					currentFunction = undefined;
 					bindContainerBody((<ts.ModuleDeclaration>node).body);
 					break;
 			}
 			ts.forEachChild(node, visitNode);
+			if (modifiesCurrentFunction) {
+				if (currentFunction && flow) {
+					currentFunction.exit.push(flow);
+				}
+				currentFunction = saveCurrentFunction;
+			}
 		}
 	}
 	function bindContainerBody(body: ts.Node | undefined) {
@@ -128,6 +178,7 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		if (node === undefined) return;
 		const begin = getNode(node, GraphNodeKind.Begin);
 		addEdge(begin);
+		let isDefault = false;
 		switch (node.kind) {
 			// Expressions
 			case ts.SyntaxKind.PrefixUnaryExpression:
@@ -172,15 +223,21 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		addEdge(end);
 		switch (node.kind) {
 			case ts.SyntaxKind.ReturnStatement:
+				if (currentFunction) {
+					currentFunction.exit.push(end);
+				}
+				/* fall through */
 			case ts.SyntaxKind.BreakStatement:
 			case ts.SyntaxKind.ContinueStatement:
 			case ts.SyntaxKind.ThrowStatement:
-			flow = undefined;
+				flow = undefined;
+				break;
 		}
+		if (isDefault) fallbackConditionFlow();
 		
 		function bindDefault() {
 			bindChildren(node!);
-			fallbackConditionFlow();
+			isDefault = true;
 		}
 		function fallbackConditionFlow() {
 			if (flow === undefined) return;
@@ -261,14 +318,19 @@ export function createGraph(files: ts.SourceFile[]): Graph {
 		flow = end;
 	}
 	function bindIf(node: ts.IfStatement) {
-		bind(node.expression, getNodeBegin(node.thenStatement), getNodeBegin(node.elseStatement));
+		const elseNode = node.elseStatement ? getNodeBegin(node.elseStatement) : synthesize(node);
+		bind(node.expression, getNodeBegin(node.thenStatement), elseNode);
 		
 		const end = getNodeEnd(node);
 		flow = undefined;
 		bind(node.thenStatement);
 		const thenFlow = flow;
-		flow = undefined;
-		bind(node.elseStatement);
+		if (node.elseStatement) {
+			flow = undefined;
+			bind(node.elseStatement);
+		} else {
+			flow = elseNode;
+		}
 		addEdge(end);
 		flow = thenFlow;
 		addEdge(end);

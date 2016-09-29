@@ -8,21 +8,48 @@ export interface Storage<TKey, TValue> {
 	get(store: Store<TKey, TValue>, key: TKey): TValue;
 	isEmpty(a: Store<TKey, TValue>): boolean;
 	equal(a: Store<TKey, TValue>, b: Store<TKey, TValue>): boolean;
+	
+	show(store: Store<TKey, TValue>): string;
 }
 export interface Store<TKey, TValue> {
 	values: Map<TKey, TValue>;
 	parents: Iterable<Store<TKey, TValue>>;
-	size: number;
 }
-export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue, union: (a: UValue, b: UValue) => UValue, valuesEqual = (a: UValue, b: UValue) => a === b): Storage<UKey, UValue> {
+export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue, union: (a: UValue, b: UValue) => UValue, valuesEqual = (a: UValue, b: UValue) => a === b, showKey = (key: UKey) => key.toString(), showValue = (value: UValue) => value.toString()): Storage<UKey, UValue> {
 	type UStore = Store<UKey, UValue>;
+	
+	const knownKeys = new Set<UKey>();
 
-	return { createStore, createEmpty, createSingleton, get, isEmpty, equal };
+	return { createStore, createEmpty, createSingleton, get, isEmpty, equal, show };
 
 	function createStore(values: Map<UKey, UValue>, parents: Iterable<UStore> = []): UStore {
-		let size = 1;
-		for (const p of parents) size += p.size;
-		return { values, parents, size };
+		for (const key of values.keys()) {
+			knownKeys.add(key);
+		}
+		if (values.size === 0) {
+			let store: UStore | undefined;
+			for (const parent of parents) {
+				if (store) {
+					store = parent;
+				} else {
+					store = undefined;
+					break;
+				}
+			}
+			if (store) {
+				return store;
+			}
+		}
+		const newValues = new Map(values);
+		for (const p of parents) {
+			for (const [key, value] of p.values) {
+				if (!values.has(key)) {
+					const old = newValues.get(key);
+					newValues.set(key, old ? union(old, value) : value);
+				}
+			}
+		}
+		return { values: newValues, parents: [] };
 	}
 	function createEmpty(parents: Iterable<UStore> = []) {
 		return createStore(new Map(), parents);
@@ -34,6 +61,7 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 		const stack = [store];
 		let hasValue = false;
 		let currentValue: UValue | undefined;
+		const handled = new Set<UStore>();
 		while (stack.length !== 0) {
 			const s = stack.pop()!;
 			if (s.values.has(key)) {
@@ -45,7 +73,11 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 					currentValue = value;
 				}
 			} else {
-				stack.push(...s.parents);
+				for (const parent of s.parents) {
+					if (handled.has(parent)) continue;
+					handled.add(parent);
+					stack.push(parent);
+				}
 			}
 		}
 		if (!hasValue) {
@@ -63,10 +95,17 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 	function equal(a: UStore, b: UStore): boolean {
 		if (a === b) return true;
 		
-		const checkedKeys = new Set<UKey>();
-		return equalHelper(new Set([a]), new Set([b]));
+		for (const key of knownKeys) {
+			if (!valuesEqual(get(a, key), get(b, key))) return false;
+		}
+		return true;
 		
-		function equalHelper(a: Set<UStore>, b: Set<UStore>): boolean {
+		/*
+		const checkedKeys = new Set<UKey>();
+		const eq = equalHelper(new Set([a]), new Set([b]));
+		return eq;
+		
+		function equalHelper(a: Set<UStore>, b: Set<UStore>, r = 0): boolean {
 			if (setCompare(a, b)) return true;
 			if (a.size === 0) return all(b.values(), isEmpty);
 			if (b.size === 0) return all(a.values(), isEmpty);
@@ -90,11 +129,22 @@ export function createStorage<UKey, UValue>(defaultValue: (key: UKey) => UValue,
 				const valueB = get(synthesizedStoreB, key);
 				if (!valuesEqual(valueA, valueB)) return false;
 			}
-			
+
 			const aNew = setAppend(aRest, maxA.parents);
 			
-			return equalHelper(aNew, b);
-		}
+			return equalHelper(aNew, b, r + 1);
+		}*/
 	}
-	
+	function show(store: UStore) {
+		const items: string[] = [];
+		for (const key of knownKeys) {
+			const value = get(store, key);
+			if (valuesEqual(value, defaultValue(key))) continue;
+			items.push(showKey(key) + " => " + showValue(value));
+		}
+		if (items.length < 4) {
+			return `Store { ${ items.join(", ") } }`;
+		}
+		return `Store {\n    ${ items.join(",\n    ") }\n}`;
+	}
 }

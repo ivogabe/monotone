@@ -6,6 +6,7 @@
 		"strictNullChecks": true,
 		"outDir": "../dist",
 		"declaration": true,
-		"pretty": true
+		"pretty": true,
+		"types": ["node"]
 	}
 }

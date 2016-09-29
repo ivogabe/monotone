@@ -11,38 +11,38 @@ npm install monotone --save
 Usage
 -----
 ```javascript
-import { monotone, runString, Direction } from "monotone";
+import { monotone, runString, Direction, TransferResult } from "monotone";
 
 const instance = monotone((files, checker) => {
 	return {
-		direction: Direction.Backward, // Or Direction.Forward
+		direction: Direction.Backward,    // Or Direction.Forward
 		
-		bottom: undefined,             // Bottom value
+		bottom: undefined,                // Bottom value
 		entry() {
-			return undefined;          // Initial value for entry points
+			return undefined;             // Initial value for entry points
 		},
 		union(a, b) {
-			return undefined;          // Combine two values
+			return undefined;             // Combine two values
 		},
 		isLessOrEqual(a, b) {
-			return true;               // Compare two value
+			return true;                  // Compare two value
 		},
 		
-		kinds: [GraphNodeKind.Begin],  // The positions of nodes in the AST that have a transfer function
+		kinds: [GraphNodeKind.Begin],     // The positions of nodes in the AST that have a transfer function
 		filter(node) {
-			return true;               // Filter nodes that have a transfer function
+			return true;                  // Filter nodes that have a transfer function
 		}
 		transfer(node, kind, state, get) {
-			return state;              // The transfer function of the monotone framework
+			return TransferResult(state); // The transfer function of the monotone framework
 		},
 		result(get) {
-			return undefined;          // Extract the information from the final state
+			return undefined;             // Extract the information from the final state
 		}
 	};
 });
 const result = runString(instance, `function(a, b) { return a + b }`);
 ```
-You can find a complete example, which implement live variable analysis, in `src/test/monotone-example.ts`.
+You can find a complete example, which implements live variable analysis, in `src/test/monotone-example.ts`.
 
 This project uses the TypeScript compiler for parsing and scope analysis, which can parse both JavaScript and TypeScript.
 

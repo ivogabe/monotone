@@ -23,7 +23,8 @@
   "author": "Ivo Gabe de Wolff",
   "license": "MIT",
   "dependencies": {
-    "typescript": "^1.9.0-dev.20160522-1.0"
+    "@types/node": "^4.0.30",
+    "typescript": "^2.0.3"
   },
   "devDependencies": {
     "ava": "^0.14.0"

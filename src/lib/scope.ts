@@ -36,7 +36,7 @@ export function createScopeResolver(checker: ts.TypeChecker) {
 	}
 	
 	function getSymbol(symbol: ts.Symbol) {
-		return idForSymbol.get(symbol);
+		return getIdInMap(undefined, idForSymbol, symbol);
 	}
 	
 	function getDottedName(node: ts.Node): string | undefined {
@@ -54,12 +54,12 @@ export function createScopeResolver(checker: ts.TypeChecker) {
 		return undefined;
 	}
 	
-	function getIdInMap<U>(node: ts.Node, map: WeakMap<U, number>, key: U) {
+	function getIdInMap<U>(node: ts.Node | undefined, map: WeakMap<U, number>, key: U) {
 		const id = map.get(key);
 		if (id !== undefined) return id;
 		
 		const newId = getNextId();
-		idForNode.set(node, newId);
+		if (node) idForNode.set(node, newId);
 		map.set(key, newId);
 		
 		return newId;
